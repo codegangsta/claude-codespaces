@@ -33,7 +33,17 @@ export class GitHubService {
       });
 
       logger.github(`Successfully fetched repository: ${data.full_name}`);
-      return data;
+      
+      // Type assertion to handle the owner.type field
+      const repository: GitHubRepository = {
+        ...data,
+        owner: {
+          ...data.owner,
+          type: (data.owner.type as 'User' | 'Organization')
+        }
+      } as GitHubRepository;
+      
+      return repository;
     } catch (error) {
       logger.error(`Failed to fetch repository ${owner}/${repo}:`, error);
       throw new Error(`Failed to fetch repository: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -55,7 +65,7 @@ export class GitHubService {
       // First, set up the devcontainer configuration
       await this.setupDevcontainer(repositoryInfo, prompt, context, issueId);
 
-      const request: CreateCodespaceRequest = {
+      const request = {
         owner: repositoryInfo.owner,
         repo: repositoryInfo.repo,
         ref: repositoryInfo.defaultBranch,
@@ -65,7 +75,7 @@ export class GitHubService {
         display_name: `Linear Agent - Issue ${issueId}`,
       };
 
-      const { data } = await this.octokit.rest.codespaces.createForRepo(request);
+      const { data } = await this.octokit.rest.codespaces.createWithRepoForAuthenticatedUser(request);
 
       logger.codespace(`Successfully created codespace: ${data.name}`);
       return data;
@@ -82,11 +92,20 @@ export class GitHubService {
     try {
       logger.codespace(`Fetching codespace: ${codespaceName}`);
 
-      const { data } = await this.octokit.rest.codespaces.get({
+      const { data } = await this.octokit.rest.codespaces.getForAuthenticatedUser({
         codespace_name: codespaceName,
       });
 
-      return data;
+      // Type assertion to handle owner.type field
+      const codespace: GitHubCodespace = {
+        ...data,
+        owner: {
+          ...data.owner,
+          type: (data.owner.type as 'User' | 'Organization')
+        }
+      } as GitHubCodespace;
+
+      return codespace;
     } catch (error) {
       logger.error(`Failed to fetch codespace ${codespaceName}:`, error);
       throw new Error(`Failed to fetch codespace: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -326,7 +345,7 @@ chmod +x "$0"
     try {
       logger.codespace(`Deleting codespace: ${codespaceName}`);
 
-      await this.octokit.rest.codespaces.delete({
+      await this.octokit.rest.codespaces.deleteForAuthenticatedUser({
         codespace_name: codespaceName,
       });
 
@@ -347,7 +366,17 @@ chmod +x "$0"
       const { data } = await this.octokit.rest.codespaces.listForAuthenticatedUser();
 
       logger.github(`Found ${data.total_count} codespaces`);
-      return data.codespaces;
+      
+      // Type assertion to handle owner.type fields
+      const codespaces: GitHubCodespace[] = data.codespaces.map(codespace => ({
+        ...codespace,
+        owner: {
+          ...codespace.owner,
+          type: (codespace.owner.type as 'User' | 'Organization')
+        }
+      })) as GitHubCodespace[];
+      
+      return codespaces;
     } catch (error) {
       logger.error('Failed to list codespaces:', error);
       throw new Error(`Failed to list codespaces: ${error instanceof Error ? error.message : 'Unknown error'}`);
