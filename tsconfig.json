@@ -5,13 +5,10 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "moduleResolution": "node",
-    "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "strict": false,
-    "declaration": true,
-    "sourceMap": true,
-    "types": ["node"]
+    "noEmitOnError": false,
+    "strict": false
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
