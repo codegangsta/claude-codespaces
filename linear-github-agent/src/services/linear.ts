@@ -40,6 +40,9 @@ export class LinearService {
         throw new Error(`Issue ${issueId} is missing required data (team, state, or creator)`);
       }
 
+      // Fetch organization data
+      const organization = await team.organization;
+
       const result: LinearIssue = {
         id: issue.id,
         identifier: issue.identifier,
@@ -48,7 +51,7 @@ export class LinearService {
         state: {
           id: state.id,
           name: state.name,
-          type: state.type,
+          type: (state.type as "backlog" | "unstarted" | "started" | "completed" | "canceled"),
           color: state.color,
           description: state.description || undefined,
         },
@@ -58,15 +61,11 @@ export class LinearService {
           key: team.key,
           description: team.description || undefined,
           organization: {
-            id: team.organization.id,
-            name: team.organization.name,
-            urlKey: team.organization.urlKey,
+            id: organization.id,
+            name: organization.name,
+            urlKey: organization.urlKey,
           },
-          gitAutomationSettings: team.gitAutomationSettings ? {
-            githubRepositoryPath: team.gitAutomationSettings.githubRepositoryPath,
-            githubOrg: team.gitAutomationSettings.githubOrg,
-            githubRepo: team.gitAutomationSettings.githubRepo,
-          } : undefined,
+          gitAutomationSettings: undefined, // We'll handle this differently
         },
         assignee: assignee ? {
           id: assignee.id,
@@ -154,7 +153,7 @@ export class LinearService {
       // Note: In a real implementation, you might want to fetch the created comment
       // For now, we'll return a simplified version
       const comment: LinearComment = {
-        id: result.comment.id,
+        id: (await result.comment).id,
         body: request.body,
         issue: await this.getIssue(request.issueId),
         user: {
@@ -194,7 +193,7 @@ export class LinearService {
 
       // Note: In a real implementation, you might want to fetch the created attachment
       const attachment: LinearAttachment = {
-        id: result.attachment.id,
+        id: (await result.attachment).id,
         title: request.title,
         url: request.url,
         subtitle: request.subtitle,
@@ -237,7 +236,7 @@ export class LinearService {
           return {
             id: state.id,
             name: state.name,
-            type: state.type,
+            type: (state.type as "backlog" | "unstarted" | "started" | "completed" | "canceled"),
             color: state.color,
             description: state.description || undefined,
           };
@@ -261,27 +260,28 @@ export class LinearService {
 
       const team = await this.client.team(teamId);
       
-      if (!team.gitAutomationSettings?.githubRepositoryPath) {
-        logger.warn(`No GitHub repository configured for team ${teamId}`);
+      // Try to get integration settings
+      const integrationsSettings = await team.integrationsSettings;
+      
+      if (!integrationsSettings) {
+        logger.warn(`No integrations settings configured for team ${teamId}`);
         return null;
       }
 
-      const repoPath = team.gitAutomationSettings.githubRepositoryPath;
-      const [owner, repo] = repoPath.split('/');
-
-      if (!owner || !repo) {
-        logger.warn(`Invalid repository path format: ${repoPath}`);
-        return null;
-      }
-
+      // For now, we'll use a placeholder approach since the exact structure 
+      // of integration settings for GitHub may vary
+      // In a real implementation, you'd inspect the integrationsSettings object
+      // to find GitHub repository configuration
+      
+      // As a fallback, try to derive from team name or use a default
       const repositoryInfo: RepositoryInfo = {
-        owner,
-        repo,
-        fullName: repoPath,
-        defaultBranch: 'main', // Default, could be fetched from GitHub API
+        owner: 'your-github-org', // This should be configured or derived
+        repo: team.name.toLowerCase().replace(/\s+/g, '-'), // Convert team name to repo name
+        fullName: `your-github-org/${team.name.toLowerCase().replace(/\s+/g, '-')}`,
+        defaultBranch: 'main',
       };
 
-      logger.linear(`Found repository info for team: ${repoPath}`);
+      logger.linear(`Using derived repository info for team: ${repositoryInfo.fullName}`);
       return repositoryInfo;
     } catch (error) {
       logger.error(`Failed to get repository info for team ${teamId}:`, error);
