@@ -78,7 +78,17 @@ export class GitHubService {
       const { data } = await this.octokit.rest.codespaces.createWithRepoForAuthenticatedUser(request);
 
       logger.codespace(`Successfully created codespace: ${data.name}`);
-      return data;
+      
+      // Type assertion to handle owner.type field
+      const codespace: GitHubCodespace = {
+        ...data,
+        owner: {
+          ...data.owner,
+          type: (data.owner.type as 'User' | 'Organization')
+        }
+      } as GitHubCodespace;
+      
+      return codespace;
     } catch (error) {
       logger.error(`Failed to create codespace for ${repositoryInfo.fullName}:`, error);
       throw new Error(`Failed to create codespace: ${error instanceof Error ? error.message : 'Unknown error'}`);
